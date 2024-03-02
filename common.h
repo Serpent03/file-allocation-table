@@ -13,6 +13,8 @@ typedef int16_t i16;
 typedef u_int32_t u32;
 typedef int32_t i32;
 
+typedef u8 String;
+
 // REF: http://www.c-jump.com/CIS24/Slides/FAT/lecture.html
 
 
