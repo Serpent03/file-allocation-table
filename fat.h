@@ -1,3 +1,8 @@
+/*
+ * "DRIVER" FILES FOR FAT16 DRIVE
+ * THIS FILE PROVIDES AN "API" BETWEEN THE DRIVE AND THE USER
+ */
+
 #pragma once
 
 #include "common.h"
@@ -12,13 +17,16 @@
 #define SECTOR_SIZE 512 // 512 byte sectors
 #define NUM_SECTORS 64 // arbitrary: let's just go with 64 * 512B sectors.
 #define NUM_SECTORS_PER_CLUSTER 2 // arbitrary: 2 sectors per cluster 
-#define NUM_CLUSTERS NUM_SECTORS / NUM_SECTORS_PER_CLUSTER // this gives us about 32 clusters.
+#define NUM_CLUSTERS (NUM_SECTORS / NUM_SECTORS_PER_CLUSTER) // this gives us about 33 clusters.
+
+#define ROOT_DIR_NAME_LIMIT 64 // arbitrary: set a 64 byte limit for names
+
 
 // REF 3: https://www.hdd-tool.com/hdd-basic/what-is-fat-file-system.html
 typedef struct FAT {
-  // boot sector
-  // allocation_table
-  // root dir
+  // boot sector >> 512 bytes
+  // allocation_table >> NUM CLUSTERS * 16 bits (2 bytes) || why? because we want to address about NUM_CLUSTERS different clusters, up to a max number of 2^16 clusters.
+  // root dir >> 
   // data cluster ()
 } FAT;
 
