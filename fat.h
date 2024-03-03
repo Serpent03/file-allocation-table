@@ -21,18 +21,13 @@
 
 #define ROOT_DIR_NAME_LIMIT 64 // arbitrary: set a 64 byte limit for names
 
+typedef struct sector {
+  u8 data[SECTOR_SIZE]; // 512 bytes
+} sector;
 
-// REF 3: https://www.hdd-tool.com/hdd-basic/what-is-fat-file-system.html
-typedef struct FAT {
-  // boot sector >> 512 bytes
-  // allocation_table >> NUM CLUSTERS * 16 bits (2 bytes) || why? because we want to address about NUM_CLUSTERS different clusters, up to a max number of 2^16 clusters.
-  // root dir >> 
-  // data cluster ()
-} FAT;
-
-typedef struct sector {} sector;
-
-typedef struct cluster {} cluster;
+typedef struct cluster {
+  sector sectors[NUM_SECTORS_PER_CLUSTER]; // 2 sectors
+} cluster;
 
 /**
  * @brief File allocation table.
@@ -45,18 +40,23 @@ typedef struct cluster {} cluster;
  * If NEXT_CLUSTER_NUMBER == 0x00 .., then the cluster is free and could be used for data.
  */
 typedef struct allocation_table {
-  u16 table[4096]; /** @todo Max table size based on clusters and sectors */
+  u16 table[NUM_CLUSTERS]; /** @todo Max table size based on clusters and sectors */
 } allocation_table;
 
 typedef struct root_dir {
-  String fileName[200];
+  String fileName[11]; // 11-byte limit enforced by FAT12/16
   u16 fileSize; 
   cluster startCluster;
 } root_dir;
 
-// DATA BLOCKS [4096], [4096], [4096], [4096]
-// CLUSTERS [DATA BLOCKS], [DATA BLOCKS]
-//
+
+// REF 3: https://www.hdd-tool.com/hdd-basic/what-is-fat-file-system.html
+typedef struct FAT {
+  // boot sector >> 512 bytes. this has all the metadata
+  allocation_table table;
+  root_dir root_dir;
+  cluster clusters[NUM_CLUSTERS];
+} FAT;
 
 
 
