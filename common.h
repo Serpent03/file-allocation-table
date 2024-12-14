@@ -1,4 +1,4 @@
-#pragma once 
+#pragma once
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -16,7 +16,3 @@ typedef int32_t i32;
 typedef u8 String;
 
 // REF: http://www.c-jump.com/CIS24/Slides/FAT/lecture.html
-
-
-
-
