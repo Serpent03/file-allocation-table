@@ -14,8 +14,8 @@
 
 /**
  * @brief: fields marked with __ignore are irrelevant to
- * reading the FAT12 disk. We also don't need to consider
- * heads/tracks/cylinders, as we're operating on a digital
+ * reading/writing to the FAT12 disk. We also don't need to 
+ * consider heads/tracks/cylinders, as we're operating on a digital
  * file instead of a real floppy.
  */
 typedef struct __bpb {
@@ -39,9 +39,26 @@ typedef struct __bpb {
     u8  file_system_type[8];
 }__attribute__((packed)) bpb;
 
+/**
+ * @brief: struct containing data on a single
+ * ROOT_DIR entry. There can be a maximum of 224
+ * such entries in a FAT12 drive(by constraint
+ * of design).
+ */
 typedef struct __root_dir_entry {
-    
-} root_dir_entry;
+    u8  file_name[8];
+    u8  extension[3];
+    u8  attributes;
+    u16 reserved;
+    u16 creation_time;
+    u16 creation_date;
+    u16 last_access_date;
+    u16 __ignore_0;
+    u16 last_write_time;
+    u16 last_write_date;
+    u16 first_logical_cluster;
+    u32 file_size;
+}__attribute__((packed)) root_dir_entry;
 
 /**
  * @brief: fat12 structure that we will actually use.
@@ -52,11 +69,36 @@ typedef struct __root_dir_entry {
 typedef struct __fat12 {
     bpb bpb;
     u32 fat1_start_sector;
+    u32 fat_size_bytes;
     u8  *fat1;
     u8  *fat2;
     u32 root_dir_start_sector;
+    u32 root_dir_size_bytes;
     u8  *root_dir;
     u32 data_area_start_sector;
 } fat12;
 
+/**
+ * @brief Initialize a FAT12 handle F by 
+ * opening a file FILE.
+ */
 void init_fat12(fat12 *f, char *file);
+
+/**
+ * @brief Get the size of a file FILE, residing
+ * in the FAT12 drive with handle F.
+ * @return u32: filesize in bytes
+ */
+i32 get_file_size(fat12 *f, char *file);
+
+/**
+ * @brief Read a file FILE from a FAT12 disk with
+ * handle F, into buffer BUFFER.
+ * @param buffer Allocates a new buffer
+ * if buffer is NULL, else fills in that buffer.
+ * @return u32: number of bytes read
+ */
+i32 read_file(fat12 *f, char *file, u8 *buffer);
+
+
+
