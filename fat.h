@@ -78,11 +78,23 @@ typedef struct __fat12 {
     u32 data_area_start_sector;
 } fat12;
 
+typedef enum {
+    CELL_TYPE_NON_USE = 0xFF0,
+} FAT_CELL_TYPE;
+
 /**
  * @brief Initialize a FAT12 handle F by 
  * opening a file FILE.
  */
 void init_fat12(fat12 *f, char *file);
+
+/**
+ * @brief Get a rootdir entry handle ENTRY if
+ * file FILE exists inside the FAT12 directory
+ * handle F
+ * @param Return NULL if file does not exist
+ */
+root_dir_entry *get_rootdir_entry(fat12 *f, char *file);
 
 /**
  * @brief Get the size of a file FILE, residing
@@ -92,13 +104,13 @@ void init_fat12(fat12 *f, char *file);
 i32 get_file_size(fat12 *f, char *file);
 
 /**
- * @brief Read a file FILE from a FAT12 disk with
- * handle F, into buffer BUFFER.
+ * @brief Read a file FILE from a FAT12 drive DRIVE,
+ * with handle F, into buffer BUFFER.
  * @param buffer Allocates a new buffer
  * if buffer is NULL, else fills in that buffer.
  * @return u32: number of bytes read
  */
-i32 read_file(fat12 *f, char *file, u8 *buffer);
+i32 read_file(fat12 *f, char *file, u8 *buffer, char *drive);
 
 
 

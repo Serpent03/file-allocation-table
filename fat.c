@@ -38,7 +38,6 @@ void init_fat12(fat12 *f, char *file) {
 bool file_name_cmp(const char *s1, const char *s2) {
     /* doesn't handle file names with size > 8 for now */
     for (u8 i = 0; i < 8; i++) {
-        printf("%c :: %c\n", s1[i], s2[i]);
         if (s1[i] == ' ') {
             continue;
         }
@@ -49,33 +48,71 @@ bool file_name_cmp(const char *s1, const char *s2) {
     return true;
 }
 
-i32 get_file_size(fat12 *f, char *file) {
-    /* read into the ROOT_DIR entries */
-    u32 file_size = -1;
-    root_dir_entry *entry;
-    bool is_same;
+root_dir_entry *get_rootdir_entry(fat12 *f, char *file) {
+    root_dir_entry *entry = NULL;
 
     for (u32 i = 0; i < f->bpb.max_rootdir_entries; i++) {
         entry = (root_dir_entry*)(f->root_dir + (i*32));
-        is_same = file_name_cmp((char*)entry->file_name, file);
-        printf("Cluster @: %d\n", entry->first_logical_cluster);
-        if (is_same) {
-            file_size = entry->file_size;
-            break;
-        }
+        if (file_name_cmp((char*)entry->file_name, file)) break;
     }
-    return file_size;
+    return entry;
 }
 
-i32 read_file(fat12 *f, char *file, u8 *buffer) {
-    u32 bytes_read = -1;
-    return bytes_read;
+i32 get_file_size(fat12 *f, char *file) {
+    /* read into the ROOT_DIR entries */
+    root_dir_entry *entry = get_rootdir_entry(f, file);
+    if (!entry) return -1;
+    return entry->file_size;
+}
+
+i32 read_file(fat12 *f, char *file, u8 *buffer, char *drive) {
+    /**
+     * FAT12 entries are packed in the shape of 
+     * yz Zx XY, where:
+     * - first cluster: xyz
+     * - second cluster: XYZ
+     * cluster -> FAT translation:
+     * (cluster * 1.5 + 1)
+
+     * Billy G was not cooking with this one..
+     */
+
+    /* If file doesn't exist, then we will be unable
+     * to get a handle on it. */
+    root_dir_entry *entry = get_rootdir_entry(f, file);
+    if (!entry) return -1;
+
+    i32 file_size = entry->file_size;
+    u32 current_cluster = entry->first_logical_cluster;
+    u32 offset = 0;
+    u8  fat_table_entry[3];
+
+    /* allocate space if the buffer points to a 
+     * NULL address type */
+    if (buffer == NULL) buffer = (u8*)malloc(file_size * sizeof(u8));
+
+    fptr = fopen(drive, "rb");
+    while ((current_cluster & 0xFF0) != CELL_TYPE_NON_USE) {
+        offset = (u32)((current_cluster * 1.5) - (current_cluster % 2 != 0));
+        printf("cluster: %03x, offset: %d ", current_cluster, offset);
+        memcpy(fat_table_entry, &f->fat1[offset], 3);
+        if (current_cluster % 2 == 0) {
+            current_cluster = (((u32)(fat_table_entry[1]) << 8) | (fat_table_entry[0])) & 0xFFF;
+        } else {
+            current_cluster = (((u32)(fat_table_entry[2]) << 4) | (fat_table_entry[1] >> 4)) & 0xFFF;
+        }
+        printf("next: %03x\n", current_cluster);
+        // fread(&f->bpb, sizeof(bpb), 1, fptr);
+    }
+    fclose(fptr);
+    return file_size;
 }
 
 int main() {
     fat12 f = {};
     init_fat12(&f, DRIVE);
-    i32 file_size = get_file_size(&f, "HELLO.txt");
-    printf("File size: %d\n", file_size);
+    u8 *buf;
+    read_file(&f, "HELLO", buf, DRIVE);
+    printf("Contents: %s\n", buf);
     return 0;
 }
