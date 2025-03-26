@@ -4,6 +4,8 @@
 #include <stdbool.h>
 #include "fat.h"
 
+#define MIN(a,b) (a > b ? b : a)
+
 FILE *fptr;
 
 void init_fat12(fat12 *f, char *file) {
@@ -65,7 +67,7 @@ i32 get_file_size(fat12 *f, char *file) {
     return entry->file_size;
 }
 
-i32 read_file(fat12 *f, char *file, u8 *buffer, char *drive) {
+i32 read_file(fat12 *f, char *file, u8 **buffer, char *drive) {
     /**
      * FAT12 entries are packed in the shape of 
      * yz Zx XY, where:
@@ -74,7 +76,7 @@ i32 read_file(fat12 *f, char *file, u8 *buffer, char *drive) {
      * cluster -> FAT translation:
      * (cluster * 1.5 + 1)
 
-     * Billy G was not cooking with this one..
+     * Billy G was **NOT** cooking with this one..
      */
 
     /* If file doesn't exist, then we will be unable
@@ -85,24 +87,49 @@ i32 read_file(fat12 *f, char *file, u8 *buffer, char *drive) {
     i32 file_size = entry->file_size;
     u32 current_cluster = entry->first_logical_cluster;
     u32 offset = 0;
+    u32 data_area_offset = f->data_area_start_sector * f->bpb.bytes_per_sector;
     u8  fat_table_entry[3];
 
+    u32 ptr = 0;
+    u32 max_allowable_read = f->bpb.bytes_per_sector * f->bpb.sectors_per_cluster;
     /* allocate space if the buffer points to a 
      * NULL address type */
-    if (buffer == NULL) buffer = (u8*)malloc(file_size * sizeof(u8));
+    if (*buffer == NULL) {
+        (*buffer) = (u8*)calloc(file_size, sizeof(u8));
+    }
 
     fptr = fopen(drive, "rb");
-    while ((current_cluster & 0xFF0) != CELL_TYPE_NON_USE) {
+    while (
+      (current_cluster & 0xFF0) != CELL_TYPE_NON_USE &&
+      current_cluster != CELL_TYPE_END
+    ) {
         offset = (u32)((current_cluster * 1.5) - (current_cluster % 2 != 0));
-        printf("cluster: %03x, offset: %d ", current_cluster, offset);
+        printf("cluster: %03x, offset: %d\n", current_cluster, offset);
         memcpy(fat_table_entry, &f->fat1[offset], 3);
+
+        /* read the actual data before we jump to the next cluster. 
+          clusters are logical groupings of bytes, so the process
+          would go as follows:
+            * offset into the data area using current cluster address
+            * read bytes_per_sector * sectors_per_cluster number of bytes
+              for each cluster we come across
+            * keep track of remaining bytes
+        */
+
+        u32 disk_read_offset = data_area_offset + \
+          (current_cluster - 2) * (f->bpb.bytes_per_sector * f->bpb.sectors_per_cluster);
+        u32 size_to_read = MIN(max_allowable_read, file_size);
+        fseek(fptr, disk_read_offset, SEEK_SET);
+        fread((*(buffer) + ptr), 1, size_to_read, fptr);
+
+        /* THIS PIECE OF CODE IS ACCURSED. DO NOT TOUCH. GOD DAMN IT, BILLY G */
+        /* fetch the next offset block in the data chain */
         if (current_cluster % 2 == 0) {
             current_cluster = (((u32)(fat_table_entry[1]) << 8) | (fat_table_entry[0])) & 0xFFF;
         } else {
             current_cluster = (((u32)(fat_table_entry[2]) << 4) | (fat_table_entry[1] >> 4)) & 0xFFF;
         }
-        printf("next: %03x\n", current_cluster);
-        // fread(&f->bpb, sizeof(bpb), 1, fptr);
+        
     }
     fclose(fptr);
     return file_size;
@@ -111,8 +138,8 @@ i32 read_file(fat12 *f, char *file, u8 *buffer, char *drive) {
 int main() {
     fat12 f = {};
     init_fat12(&f, DRIVE);
-    u8 *buf;
-    read_file(&f, "HELLO", buf, DRIVE);
+    u8 *buf = NULL;
+    read_file(&f, "HELLO", &buf, DRIVE);
     printf("Contents: %s\n", buf);
     return 0;
 }

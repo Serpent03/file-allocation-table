@@ -80,6 +80,7 @@ typedef struct __fat12 {
 
 typedef enum {
     CELL_TYPE_NON_USE = 0xFF0,
+    CELL_TYPE_END     = 0xFFF,
 } FAT_CELL_TYPE;
 
 /**
@@ -92,7 +93,7 @@ void init_fat12(fat12 *f, char *file);
  * @brief Get a rootdir entry handle ENTRY if
  * file FILE exists inside the FAT12 directory
  * handle F
- * @param Return NULL if file does not exist
+ * @return NULL if file does not exist, else a handle
  */
 root_dir_entry *get_rootdir_entry(fat12 *f, char *file);
 
@@ -110,7 +111,7 @@ i32 get_file_size(fat12 *f, char *file);
  * if buffer is NULL, else fills in that buffer.
  * @return u32: number of bytes read
  */
-i32 read_file(fat12 *f, char *file, u8 *buffer, char *drive);
+i32 read_file(fat12 *f, char *file, u8 **buffer, char *drive);
 
 
 
