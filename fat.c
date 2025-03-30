@@ -1,3 +1,18 @@
+/*
+  This system purely focuses on the lower level FAT12 drivers,
+  and pays no homage to virtualized file systems above it - that
+  may call it. In actuality, the process should be somewhat
+  like this:
+
+  USER(req I/O) -> virtual FILE SYSTEM(check actual physical fs) ->
+  kernel(engage driver) -> driver(actually do I/O)
+
+  The module we are at right now sits on the driver stack; i.e,
+  the lowest level in the entire stack, where we are more worried
+  about getting and sending data rather than what that data is all
+  about.
+*/
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -38,7 +53,10 @@ void init_fat12(fat12 *f, char *file) {
 }
 
 bool file_name_cmp(const char *s1, const char *s2) {
-    /* doesn't handle file names with size > 8 for now */
+    /* doesn't handle file names with size > 8 for now 
+    OR extensions! 
+
+    @todo: fix this shit fool*/
     for (u8 i = 0; i < 8; i++) {
         if (s1[i] == ' ') {
             continue;
@@ -51,13 +69,15 @@ bool file_name_cmp(const char *s1, const char *s2) {
 }
 
 root_dir_entry *get_rootdir_entry(fat12 *f, char *file) {
-    root_dir_entry *entry = NULL;
+    root_dir_entry *entry;
 
     for (u32 i = 0; i < f->bpb.max_rootdir_entries; i++) {
         entry = (root_dir_entry*)(f->root_dir + (i*32));
-        if (file_name_cmp((char*)entry->file_name, file)) break;
+        if (file_name_cmp((char*)entry->file_name, file)) {
+          return entry;
+        }
     }
-    return entry;
+    return NULL;
 }
 
 i32 get_file_size(fat12 *f, char *file) {
@@ -92,6 +112,7 @@ i32 read_file(fat12 *f, char *file, u8 **buffer, char *drive) {
 
     u32 ptr = 0;
     u32 max_allowable_read = f->bpb.bytes_per_sector * f->bpb.sectors_per_cluster;
+    u32 remaining_bytes = file_size;
     /* allocate space if the buffer points to a 
      * NULL address type */
     if (*buffer == NULL) {
@@ -118,9 +139,10 @@ i32 read_file(fat12 *f, char *file, u8 **buffer, char *drive) {
 
         u32 disk_read_offset = data_area_offset + \
           (current_cluster - 2) * (f->bpb.bytes_per_sector * f->bpb.sectors_per_cluster);
-        u32 size_to_read = MIN(max_allowable_read, file_size);
+        u32 size_to_read = MIN(max_allowable_read, remaining_bytes);
         fseek(fptr, disk_read_offset, SEEK_SET);
         fread((*(buffer) + ptr), 1, size_to_read, fptr);
+        remaining_bytes -= size_to_read;
 
         /* THIS PIECE OF CODE IS ACCURSED. DO NOT TOUCH. GOD DAMN IT, BILLY G */
         /* fetch the next offset block in the data chain */
@@ -135,11 +157,37 @@ i32 read_file(fat12 *f, char *file, u8 **buffer, char *drive) {
     return file_size;
 }
 
+i32 write_file(fat12 *f, char *file, u8 *buffer, u32 nbytes, char *drive) {
+  /* check if the file exists before or not. we'll overrwrite it,
+  if so, by deallocating the FAT for that file. */
+
+  root_dir_entry *entry = get_rootdir_entry(f, file);
+  // if (entry) delete_file();
+
+  // fptr = fopen(drive, "wb");
+  // fclose(fptr);
+
+  /* write nbytes from the buffer into the drive, in
+  accordance to FAT12 standards. This should allow,
+  in theory, to perform all sorts of CRUD tasks to/fro
+  the file system. */
+  return nbytes;
+}
+
 int main() {
     fat12 f = {};
     init_fat12(&f, DRIVE);
+
     u8 *buf = NULL;
-    read_file(&f, "HELLO", &buf, DRIVE);
-    printf("Contents: %s\n", buf);
+    i32 b_read = read_file(&f, "HELLO", &buf, DRIVE);
+    printf("Bytes read: (%d)\nContents: %s\n", b_read, buf);
+
+    // u8 *msg = "Hi there, written from the OS land!";
+    // i32 b_write = write_file(&f, "BYE", msg, strlen(msg), DRIVE);
+
+    free(buf);
+    buf = NULL;
+    b_read = read_file(&f, "BYE", &buf, DRIVE);
+    printf("Contents: %s\n, bytes read: (%d)", buf, b_read);
     return 0;
 }

@@ -113,5 +113,13 @@ i32 get_file_size(fat12 *f, char *file);
  */
 i32 read_file(fat12 *f, char *file, u8 **buffer, char *drive);
 
+/**
+ * @brief Write a file FILE, into a FAT12 drive DRIVE,
+ * opened by the pointer F, from buffer BUFFER.
+ * @param buffer Contents to be written to the drive.
+ * @return u32: number of bytes written
+ */
+i32 write_file(fat12 *f, char *file, u8 *buffer, u32 nbytes, char *drive);
+
 
 
